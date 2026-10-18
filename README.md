@@ -83,7 +83,7 @@ build/  package/  dist/  generated (gitignored)
 
 | Stage | Builds | Notes |
 |---|---|---|
-| `01-deps` | rocm-cmake, abseil, nlohmann/json, msgpack-c, eigen, pcre 8.45, protobuf v30 (static) | into `build/deps/prefix`; pins per MIGraphX `rocm-10.1` requirements.txt |
+| `01-deps` | rocm-cmake, abseil, nlohmann/json, msgpack-c, eigen, pcre 8.45 | into `build/deps/prefix`; pins per MIGraphX `rocm-10.1` requirements.txt. **No protobuf** — see "Why the dependencies are split" |
 | `02-ck` | composable_kernel host / codegen JIT | the CK commit MIGraphX pins; ROCm SDK clang |
 | `03-rocmlir` | rocMLIR (Triton/MLIR JIT codegen) | **the long stage (hours)**; fat `librocmcompiler` |
 | `04-migraphx` | MIGraphX `rocm-10.1` | against the ROCm SDK + local rocMLIR, for `$GPU_TARGETS` |
@@ -107,7 +107,8 @@ Every value can be overridden from the environment, e.g.
 | `ORT_TAG` | `v1.31.0` | ONNX Runtime release (latest with the MIGraphX EP) |
 | `MIGRAPHX_TAG` | `rocm-$ROCM_VERSION` | MIGraphX release tag |
 | `ROCKMLIR_BRANCH` | `release/rocm-rel-$ROCM_VERSION` | rocMLIR branch |
-| `CK_COMMIT`, `ROCM_CMAKE_COMMIT`, `ABSEIL_TAG`, `JSON_TAG`, `MSGPACK_TAG`, `EIGEN_VERSION`, `PCRE_BRANCH`, `PROTOBUF_TAG` | see file | stage-01/02 source pins |
+| `CK_COMMIT`, `ROCM_CMAKE_COMMIT`, `ABSEIL_TAG`, `JSON_TAG`, `MSGPACK_TAG`, `EIGEN_VERSION`, `PCRE_BRANCH` | see file | stage-01/02 source pins |
+| `MIN_PROTOBUF` | `3.21` | minimum system protobuf version (build-time floor check) |
 | `ORT_CC` / `ORT_CXX` | `clang-22` / `clang++-22` | ORT-stage compiler |
 | `JOBS` | `nproc` | parallelism |
 | `BUILD_ROOT` | `./build` | all build areas |
@@ -179,7 +180,7 @@ for ROCm ≥ 10.1 — then the bundled MIGraphX can be dropped in favor of
 
 ### Why the dependencies are split (system debs vs source pins)
 
-Stage 01 builds rocm-cmake/abseil/json/msgpack/eigen/pcre/protobuf from source
+Stage 01 builds rocm-cmake/abseil/json/msgpack/eigen/pcre from source
 because **no upstream package provides the pinned version** on Ubuntu 26.10
 (TheRock ships no rocm-cmake; Ubuntu has no msgpack/pcre1, and its
 abseil/eigen/json are different builds). Everything that *does* come from
@@ -187,12 +188,22 @@ upstream debs:
 
 - zstd (`libzstd-dev`) and sqlite (`libsqlite3-dev`) — Ubuntu ships the
   pinned versions;
-- the **runtime** protobuf of the final stack is Ubuntu's
-  `libprotobuf32t64` (`libprotobuf.so.32`) — the staged
-  `libmigraphx_onnx.so` NEEDs it, and the Depends generator picks it up; the
-  deps-prefix protobuf v30 (static) is only a build-time codegen input for
-  MIGraphX;
+- **protobuf, build-time and runtime** — `libprotobuf-dev` +
+  `protobuf-compiler` (system protoc) are the *only* protobuf in the
+  pipeline. The staged `libmigraphx_onnx.so` NEEDs the system
+  `libprotobuf.so.32` (Ubuntu `libprotobuf32t64`), and the Depends generator
+  picks it up;
 - the whole ROCm runtime on the target is the `amdrocm` deb set (in `Depends`).
+
+Why no source-built protobuf? MIGraphX's CMake runs
+`find_package(protobuf QUIET CONFIG)` before falling back to the system
+package. A protobuf CMake config in the deps prefix (e.g. a source-built
+protobuf v30) makes it **statically link its own protobuf** instead of the
+system one. That puts a second protobuf runtime in the process alongside the
+one ORT bundles — and the MIGraphX EP then segfaults in `Compile`. The
+validated stack always used the system shared protobuf, so the deps prefix
+deliberately contains no protobuf (and stage 01 verifies the system version
+is at least `MIN_PROTOBUF`).
 
 ## Using it from darktable
 

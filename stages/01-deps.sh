@@ -4,18 +4,23 @@
 # (see config/build.env) plus this project's build provenance.
 #
 #   1. rocm-cmake  (pinned commit)
-#   2. abseil      (needed by protobuf v30)
+#   2. abseil      (kept to mirror the validated deps prefix)
 #   3. nlohmann/json
 #   4. msgpack-c
 #   5. eigen
 #   6. pcre 8.45   (pfultz2 fork, per rocm-recipes; autotools build)
-#   7. protobuf v30
 #
 # zstd 1.5.7 and sqlite3 come from system dev packages instead of source
-# builds (Ubuntu ships exactly the pinned versions). The final package's
-# *runtime* protobuf is the system libprotobuf32t64 (libprotobuf.so.32); the
-# deps-prefix protobuf here is built static and is a build-time input to
-# MIGraphX's codegen, so the validated stack is reproduced exactly.
+# builds (Ubuntu ships exactly the pinned versions).
+#
+# IMPORTANT — protobuf is NOT built here, on purpose. The validated stack
+# links the system libprotobuf.so.32 (Ubuntu libprotobuf32t64) dynamically:
+# MIGraphX's CMake does `find_package(protobuf QUIET CONFIG)` and, finding
+# nothing, falls back to module mode, which resolves the system protoc and
+# the system shared protobuf. If a protobuf CMake config were present in
+# this prefix, MIGraphX would statically link its own protobuf — a second
+# protobuf runtime in the process alongside ORT's bundled one, which breaks
+# the MIGraphX EP at runtime (segfault in EP::Compile).
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 source "$HERE/../config/build.env"
@@ -28,7 +33,15 @@ LOG=$DEPS_DIR/build-deps.log
 mkdir -p "$SRC" "$BLD" "$TMP"
 
 # --- Prerequisites (install yourself; this script does not sudo) ----------
-require_pkg libzstd-dev libsqlite3-dev autoconf automake git cmake curl
+require_pkg libzstd-dev libsqlite3-dev libprotobuf-dev protobuf-compiler autoconf automake git cmake curl
+
+# protobuf comes exclusively from the system; verify the version floor.
+sys_pb=$(dpkg-query -W -f'${Version}' libprotobuf-dev 2>/dev/null || true)
+if [ -z "$sys_pb" ] || ! dpkg --compare-versions "$sys_pb" ge "$MIN_PROTOBUF"; then
+  echo "ERROR: system protobuf >= $MIN_PROTOBUF required (found: ${sys_pb:-none})" >&2
+  exit 1
+fi
+log "system protobuf $sys_pb (module-mode fallback for MIGraphX) OK"
 
 export CCACHE_DIR
 CCL=()
@@ -55,7 +68,8 @@ log "=== rocm-cmake @ $ROCM_CMAKE_COMMIT ==="
 get_source "$SRC/rocm-cmake" https://github.com/RadeonOpenCompute/rocm-cmake.git "$ROCM_CMAKE_COMMIT" commit
 build_cmake rocm-cmake rocm-cmake
 
-# 2. abseil (needed by protobuf v30)
+# 2. abseil (historically a protobuf-v30 dependency; kept so the prefix
+#    mirrors the validated deps layout exactly)
 log "=== abseil-cpp @ $ABSEIL_TAG ==="
 get_source "$SRC/abseil-cpp" https://github.com/abseil/abseil-cpp.git "$ABSEIL_TAG" tag shallow
 build_cmake abseil abseil-cpp -DABSL_ENABLE_INSTALL=ON
@@ -98,17 +112,6 @@ log "=== build pcre (autotools) ==="
   make install
 ) >>"$LOG" 2>&1
 log "=== installed: pcre ==="
-
-# 7. protobuf v30.0 (needs abseil from the prefix; system protobuf is too old)
-log "=== protobuf @ $PROTOBUF_TAG ==="
-get_source "$SRC/protobuf" https://github.com/protocolbuffers/protobuf.git "$PROTOBUF_TAG" tag
-build_cmake protobuf protobuf \
-  -DCMAKE_PREFIX_PATH="$DEPS_PREFIX" \
-  -Dprotobuf_BUILD_TESTS=Off \
-  -Dprotobuf_BUILD_SHARED_LIBS=Off \
-  -Dprotobuf_BUILD_LIBPROTOC=On \
-  -Dprotobuf_BUILD_PROTOC_BINARIES=On \
-  -Dprotobuf_BUILD_PROTOBUF_BINARIES=On
 
 log "ALL DEPS DONE -> $DEPS_PREFIX"
 stamp 01-deps

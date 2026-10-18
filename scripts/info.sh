@@ -15,7 +15,7 @@ echo "  ORT         : $ORT_TAG        MIGraphX: $MIGRAPHX_TAG ($MIGRAPHX_VERSION
 echo "  rocMLIR     : $ROCKMLIR_BRANCH"
 echo "  CK commit   : $CK_COMMIT"
 echo "  deps pins   : rocm-cmake=$ROCM_CMAKE_COMMIT abseil=$ABSEIL_TAG json=$JSON_TAG"
-echo "                msgpack=$MSGPACK_TAG eigen=$EIGEN_VERSION pcre=$PCRE_BRANCH protobuf=$PROTOBUF_TAG"
+echo "                msgpack=$MSGPACK_TAG eigen=$EIGEN_VERSION pcre=$PCRE_BRANCH protobuf=system(>=$MIN_PROTOBUF)"
 echo "  ORT cc      : $ORT_CC / $ORT_CXX     JOBS: $JOBS"
 echo "  build root  : $BUILD_ROOT"
 echo "  package dir : $PACKAGE_ROOT"
