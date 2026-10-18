@@ -1,0 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+
+case "${1:-}" in
+  purge)
+    # Remove the ld.so.conf fragment that postinst may have generated at
+    # install time (it is not a package file, so dpkg never manages it).
+    CONF=/etc/ld.so.conf.d/@PKG_NAME@.conf
+    if [ -f "$CONF" ]; then
+      rm -f "$CONF"
+      ldconfig
+    fi
+    ;;
+esac
+
+exit 0

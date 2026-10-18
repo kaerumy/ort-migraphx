@@ -1,0 +1,39 @@
+diff --git a/onnxruntime/core/providers/migraphx/migraphx_execution_provider.cc b/onnxruntime/core/providers/migraphx/migraphx_execution_provider.cc
+index 8908013..86d6b2a 100644
+--- a/onnxruntime/core/providers/migraphx/migraphx_execution_provider.cc
++++ b/onnxruntime/core/providers/migraphx/migraphx_execution_provider.cc
+@@ -1394,7 +1394,7 @@ Status MIGraphXExecutionProvider::Compile(const std::vector<FusedNodeAndGraph>&
+     map_input_index_[fused_node.Name()] = input_name_index;
+     map_no_input_shape_[fused_node.Name()] = no_input_shape;
+     NodeComputeInfo compute_info;
+-    compute_info.create_state_func = [=](ComputeContext* context, FunctionState* state) {
++    compute_info.create_state_func = [=, this](ComputeContext* context, FunctionState* state) {
+       std::unique_ptr<MIGraphXFuncState> p = std::make_unique<MIGraphXFuncState>();
+       *p = {context->allocate_func, context->release_func, context->allocator_handle, map_progs_[context->node_name],
+             map_onnx_string_[context->node_name], options, t_, map_input_index_[context->node_name], &mgx_mu_,
+diff --git a/onnxruntime/core/providers/migraphx/migraphx_execution_provider_utils.h b/onnxruntime/core/providers/migraphx/migraphx_execution_provider_utils.h
+index e20cc91..5b02204 100644
+--- a/onnxruntime/core/providers/migraphx/migraphx_execution_provider_utils.h
++++ b/onnxruntime/core/providers/migraphx/migraphx_execution_provider_utils.h
+@@ -213,7 +213,7 @@ inline bool ReadDynamicRange(const std::filesystem::path& filename,
+           std::getline(in_line, str, delim);
+           std::string tensor_name = str;
+           std::getline(in_line, str, delim);
+-          uint32_t scale_int = std::strtoul(str.c_str(), nullptr, 16);
++          uint32_t scale_int = static_cast<uint32_t>(std::strtoul(str.c_str(), nullptr, 16));
+           float scale_float = ConvertSinglePrecisionIEEE754ToFloat(scale_int);
+           float dynamic_range = scale_float * 127.0f;
+           dynamic_range_map[tensor_name] = dynamic_range;
+diff --git a/onnxruntime/core/providers/migraphx/migraphx_provider_factory.cc b/onnxruntime/core/providers/migraphx/migraphx_provider_factory.cc
+index 37c76c9..bc9a742 100644
+--- a/onnxruntime/core/providers/migraphx/migraphx_provider_factory.cc
++++ b/onnxruntime/core/providers/migraphx/migraphx_provider_factory.cc
+@@ -100,7 +100,7 @@ struct ProviderInfo_MIGraphX_Impl final : ProviderInfo_MIGraphX {
+ struct MIGraphX_Provider final : Provider {
+   void* GetInfo() override { return &g_info; }
+ 
+-  virtual ~MIGraphX_Provider() = default;
++  ~MIGraphX_Provider() = default;
+ 
+   std::shared_ptr<IExecutionProviderFactory> CreateExecutionProviderFactory(int device_id) override {
+     MIGraphXExecutionProviderInfo info;

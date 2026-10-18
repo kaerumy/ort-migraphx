@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+
+case "${1:-}" in
+  configure)
+    # SONAMEs this stack needs from the system (not bundled here).
+    REQUIRED_LIBS=(
+@REQUIRED_LIBS@
+    )
+
+    # NOTE: match with awk alone and read ALL input -- `grep -q` would exit on
+    # the first match, SIGPIPE the upstream `ldconfig -p`, and under
+    # `set -o pipefail` report a false "not in cache".
+    in_cache() { ldconfig -p | awk -v s="$1" '$1==s {found=1} END {exit found?0:1}'; }
+
+    # Directories that may provide the ROCm libraries, most specific first.
+    CANDIDATE_DIRS=()
+    for d in @ROCM_LIB_DIRS@ /opt/rocm/core-*/lib /opt/rocm-*/lib /usr/lib/x86_64-linux-gnu; do
+      [ -d "$d" ] || continue
+      case " ${CANDIDATE_DIRS[*]:-} " in *" $d "*) ;; *) CANDIDATE_DIRS+=("$d");; esac
+    done
+
+    # The bundled libraries resolve these via RPATH anyway; this only makes
+    # the rest of the system (and diagnostics) resolve them too. Register a
+    # directory only if at least one required SONAME is missing from the
+    # cache AND present in that directory.
+    to_register=()
+    for lib in ${REQUIRED_LIBS[@]+"${REQUIRED_LIBS[@]}"}; do
+      in_cache "$lib" && continue
+      for d in ${CANDIDATE_DIRS[@]+"${CANDIDATE_DIRS[@]}"}; do
+        if [ -n "$d" ] && [ -e "$d/$lib" ]; then
+          case " ${to_register[*]:-} " in *" $d "*) ;; *) to_register+=("$d");; esac
+          break
+        fi
+      done
+    done
+
+    CONF=/etc/ld.so.conf.d/@PKG_NAME@.conf
+    if [ ${#to_register[@]} -gt 0 ]; then
+      for d in "${to_register[@]}"; do
+        if ! grep -rsqxF "$d" /etc/ld.so.conf.d/ 2>/dev/null; then
+          echo "    (postinst) registering missing library path: $d"
+          echo "$d" >> "$CONF"
+        fi
+      done
+      ldconfig
+    fi
+    ;;
+esac
+
+exit 0

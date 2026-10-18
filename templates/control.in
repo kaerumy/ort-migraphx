@@ -1,0 +1,24 @@
+Package: @PKG_NAME@
+Version: @PKG_VERSION@
+Section: science
+Priority: optional
+Architecture: amd64
+Maintainer: @MAINTAINER@
+Depends: @DEPENDS@
+Description: ONNX Runtime @ORT_VERSION@ with MIGraphX @MIGRAPHX_VERSION@ GPU EP (ROCm @ROCM_VERSION@, @GPU_TARGETS@)
+ GPU-accelerated ONNX Runtime for AMD Radeon GPUs (@GPU_TARGETS@) with
+ ROCm @ROCM_VERSION@ (TheRock amdrocm packages). For darktable's AI
+ features and other ONNX workloads.
+ .
+ Bundles a self-contained, RPATH-hardened stack under /usr/lib/@PKG_NAME@/:
+  - libonnxruntime.so.@ORT_VERSION@ (additive C API; GetApi() of any lower
+    version works, so clients built against older ORT link fine)
+  - libonnxruntime_providers_migraphx.so (MIGraphX execution provider)
+  - MIGraphX @MIGRAPHX_VERSION@ with rocMLIR JIT support for @GPU_TARGETS@
+  - small test binaries + model under test/ for verification
+ .
+ Installs cleanly alongside other packages: it shares no files with them.
+ The bundled libraries resolve their ROCm dependencies via RPATH; postinst
+ additionally registers the missing library directories with ldconfig when
+ the ROCm sonames are not yet in the dynamic linker cache (writes
+ /etc/ld.so.conf.d/@PKG_NAME@.conf, removed on purge).

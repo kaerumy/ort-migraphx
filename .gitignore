@@ -1,0 +1,13 @@
+# Build areas (make build output: sources, build trees, install prefixes)
+build/
+
+# Generated payload tree and .deb output
+package/
+dist/
+
+# Logs
+*.log
+
+# Scratch
+*~
+.#*

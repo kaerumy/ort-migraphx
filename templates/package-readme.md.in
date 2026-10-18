@@ -1,0 +1,36 @@
+# @PKG_NAME@
+
+ONNX Runtime @ORT_VERSION@ with the MIGraphX GPU execution provider, for
+AMD GPUs (@GPU_TARGETS@) on ROCm @ROCM_VERSION@ (TheRock amdrocm packages).
+Installed by this package; see the `description` field of the .deb for
+details.
+
+## Using it from darktable
+
+darktable keeps its bundled CPU ONNX Runtime and only switches to this GPU
+stack via a library path override:
+
+    # darktaberc
+    plugins/ai/ort_library_path = /usr/lib/@PKG_NAME@/lib/libonnxruntime.so.@ORT_VERSION@
+
+    # or environment
+    export DT_ORT_LIBRARY=/usr/lib/@PKG_NAME@/lib/libonnxruntime.so.@ORT_VERSION@
+
+## Verifying the installation
+
+    /usr/lib/@PKG_NAME@/test/test_darktable_path /usr/lib/@PKG_NAME@/lib/libonnxruntime.so.@ORT_VERSION@
+    cd /usr/lib/@PKG_NAME@/test && ./test_ort_mgx test_mgx.onnx x_input.bin y_expected.bin 4
+
+Notes:
+
+- The first inference run of each model is slow (MIGraphX Triton JIT for
+  @GPU_TARGETS@); compiled results are cached under ~/.cache/migraphx.
+- The ROCm runtime is **not** part of this package — it is provided by the
+  amdrocm packages listed in `Depends`.
+
+## Uninstalling
+
+    sudo apt-get purge @PKG_NAME@
+
+(purging also removes the ld.so.conf.d fragment that postinst may have
+created.)
