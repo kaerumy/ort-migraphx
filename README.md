@@ -249,6 +249,22 @@ packages automatically. Alternatively build per-target packages (separate
 their GPU — they install side by side without file clashes, since each
 package uses its own `/usr/lib/<pkg>/` tree.
 
+## Migrating from the original repo (ort-migraphx-initial)
+
+The original package installed to `/usr/lib/ort-migraphx/`; this one
+installs to `/usr/lib/<pkg>/` (per-target, so multiple targets can be
+installed side by side). The package *name* is unchanged
+(`ort-migraphx-gfx1201`), so on a machine with the old install:
+
+```sh
+sudo apt-get install ./dist/ort-migraphx-gfx1201_1.31.0-1_amd64.deb
+```
+
+upgrades in place — dpkg removes the old `/usr/lib/ort-migraphx/` tree (the
+old version's files) and installs the new one. After that, point darktable's
+`plugins/ai/ort_library_path` (or `DT_ORT_LIBRARY`) at the **new** path
+`/usr/lib/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0`.
+
 ## Provenance
 
 Refactored from `~/src/ort-migraphx-initial` (the original, proven build +
