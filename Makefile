@@ -6,7 +6,7 @@
 #   make assemble        assemble the built stack into the dpkg payload tree
 #   make deb             build the .deb into dist/
 #   make test            smoke test the staged stack (needs the AMD GPU)
-#   make test-installed  smoke test /usr/lib/<pkg> (after make install-deb)
+#   make test-installed  smoke test /usr/lib/<multiarch>/<pkg> (after make install-deb)
 #   make install-deb / uninstall-deb   install / purge via the deb
 #   make info | status   resolved config / build progress
 #   make clean | distclean
@@ -44,7 +44,7 @@ help:
 	@echo "Verify & install (needs the AMD GPU for the real test):"
 	@echo "  make test                  smoke test the staged stack"
 	@echo "  make install-deb           install the .deb (apt, resolves Depends)"
-	@echo "  make test-installed        smoke test the installed /usr/lib/$(PKG_NAME)"
+	@echo "  make test-installed        smoke test the installed /usr/lib/<multiarch>/$(PKG_NAME)"
 	@echo "  make uninstall-deb         purge the package"
 	@echo
 	@echo "Ops:"

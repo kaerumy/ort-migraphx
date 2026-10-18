@@ -70,7 +70,7 @@ stages/                the source build, in order (see "Build stages")
 scripts/
   assemble-stack.sh    build outputs -> dpkg payload tree (RPATH-hardened)
   build-deb.sh         payload tree -> .deb (renders DEBIAN/, derives Depends)
-  run-test.sh          smoke test (staged tree or /usr/lib/<pkg>)
+  run-test.sh          smoke test (staged tree or /usr/lib/<multiarch>/<pkg>)
   install-deb.sh / uninstall-deb.sh
   info.sh / status.sh  config+env check / build progress
 templates/             control.in, postinst.in, postrm.in, package README
@@ -205,6 +205,48 @@ validated stack always used the system shared protobuf, so the deps prefix
 deliberately contains no protobuf (and stage 01 verifies the system version
 is at least `MIN_PROTOBUF`).
 
+## Package layout (Ubuntu packaging guide, ch. 10)
+
+The deb installs to:
+
+```
+/usr/lib/x86_64-linux-gnu/ort-migraphx-<targets>/   ← $MULTIARCH + $PKG_NAME
+├── lib/
+│   ├── libonnxruntime.so.1.31.0        real file (SONAME libonnxruntime.so.1)
+│   ├── libonnxruntime.so.1 -> .1.31.0  SONAME symlink
+│   ├── libonnxruntime_providers_shared.so
+│   ├── libonnxruntime_providers_migraphx.so
+│   ├── libmigraphx_c.so.3.0            real file (SONAME libmigraphx_c.so.3)
+│   ├── libmigraphx_c.so.3 -> .3.0      SONAME symlink
+│   └── migraphx/lib/                   MIGraphX core + plugin libs, same pattern
+└── test/                               smoke-test binaries + model
+```
+
+The rules applied, per the guide's "Shared Libraries" chapter:
+
+- **Location** — shared libraries live in the `/usr/lib/` tree (the
+  multi-arch dir `x86_64-linux-gnu` on amd64). The per-package
+  subdirectory is the standard resolution for private, per-variant
+  libraries (cf. `qt5/`, `gstreamer1.0/`, `libreoffice/`): a flat
+  `/usr/lib/x86_64-linux-gnu/` layout is impossible here, because two
+  per-target packages would own the same file names with different bytes.
+  As a bonus, `ldconfig` does not recurse into subdirectories, so the
+  stack's libraries stay private — loaded via the explicit darktable
+  override and the `$ORIGIN` RPATHs, not the global linker cache.
+- **Runtime package content** — real files plus their SONAME symlinks,
+  exactly as in the guide's libnova example. The *unversioned*
+  `libfoo.so` development symlinks (and headers, which this package
+  doesn't ship) are **not** included: those belong to a `libfoo-dev`
+  package, and no client compiles against these libraries.
+- **Package name** — `libfoo<ABI>` naming applies to standalone *library*
+  packages. This is a bundled program runtime (the guide's bundling case:
+  the only consumer is darktable, via an explicit library path), named
+  after its contents and GPU target; the `libonnxruntime1`-style name
+  would clash with upstream ORT's own package and hide the MIGraphX half.
+- **Symbol files** — not applicable: no package depends on these
+  libraries via shlibs; the `Depends` field is derived exactly from the
+  staged ELF `NEEDED` entries.
+
 ## Using it from darktable
 
 darktable keeps its bundled CPU ONNX Runtime and only switches to this GPU
@@ -212,12 +254,12 @@ stack via a library path override:
 
 ```ini
 # darktaberc
-plugins/ai/ort_library_path = /usr/lib/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0
+plugins/ai/ort_library_path = /usr/lib/x86_64-linux-gnu/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0
 ```
 
 ```sh
 # or environment
-export DT_ORT_LIBRARY=/usr/lib/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0
+export DT_ORT_LIBRARY=/usr/lib/x86_64-linux-gnu/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0
 ```
 
 The C API is additive: `GetApi()` of any lower version works, so darktable
@@ -258,23 +300,25 @@ Depends gain the `amdrocm-dnn10.1-gfx1202` / `amdrocm-blas10.1-gfx1202`
 packages automatically. Alternatively build per-target packages (separate
 `GPU_TARGETS` + fresh `build/` per target) so users pick the package matching
 their GPU — they install side by side without file clashes, since each
-package uses its own `/usr/lib/<pkg>/` tree.
+package uses its own `/usr/lib/<multiarch>/<pkg>/` tree.
 
 ## Migrating from the original repo (ort-migraphx-initial)
 
 The original package installed to `/usr/lib/ort-migraphx/`; this one
-installs to `/usr/lib/<pkg>/` (per-target, so multiple targets can be
-installed side by side). The package *name* is unchanged
-(`ort-migraphx-gfx1201`), so on a machine with the old install:
+installs to `/usr/lib/<multiarch>/<pkg>/` (per-target, so multiple targets
+can be installed side by side). The package *name* is unchanged
+(`ort-migraphx-gfx1201`), so on a machine with an older revision of it:
 
 ```sh
-sudo apt-get install ./dist/ort-migraphx-gfx1201_1.31.0-1_amd64.deb
+sudo apt-get install ./dist/ort-migraphx-gfx1201_1.31.0-2_amd64.deb
 ```
 
-upgrades in place — dpkg removes the old `/usr/lib/ort-migraphx/` tree (the
-old version's files) and installs the new one. After that, point darktable's
+upgrades in place — dpkg removes the old version's files (e.g. the
+`/usr/lib/ort-migraphx/` tree or the pre-revision-2 `/usr/lib/<pkg>/`
+tree, plus the unversioned dev symlinks revision 2 no longer ships) and
+installs the new one. After that, point darktable's
 `plugins/ai/ort_library_path` (or `DT_ORT_LIBRARY`) at the **new** path
-`/usr/lib/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0`.
+`/usr/lib/x86_64-linux-gnu/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0`.
 
 ## Provenance
 

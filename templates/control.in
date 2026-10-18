@@ -10,7 +10,8 @@ Description: ONNX Runtime @ORT_VERSION@ with MIGraphX @MIGRAPHX_VERSION@ GPU EP 
  ROCm @ROCM_VERSION@ (TheRock amdrocm packages). For darktable's AI
  features and other ONNX workloads.
  .
- Bundles a self-contained, RPATH-hardened stack under /usr/lib/@PKG_NAME@/:
+ Bundles a self-contained, RPATH-hardened stack under
+ /usr/lib/@MULTIARCH@/@PKG_NAME@/:
   - libonnxruntime.so.@ORT_VERSION@ (additive C API; GetApi() of any lower
     version works, so clients built against older ORT link fine)
   - libonnxruntime_providers_migraphx.so (MIGraphX execution provider)

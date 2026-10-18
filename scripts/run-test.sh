@@ -1,8 +1,8 @@
 #!/bin/bash
 # Smoke test a staged or installed stack (needs the AMD GPU + ROCm).
 #
-#   make test             -> the payload tree (package/<pkg>/usr/lib/<pkg>)
-#   make test-installed   -> /usr/lib/<pkg>   (requires: make install-deb)
+#   make test             -> the payload tree (package/<pkg>/usr/lib/<multiarch>/<pkg>)
+#   make test-installed   -> /usr/lib/<multiarch>/<pkg>   (requires: make install-deb)
 #
 #   1. test_darktable_path: dlopen the versioned lib, request C API v24
 #      (what darktable 5.6.2 was built against), check the MIGraphX provider.
@@ -16,9 +16,9 @@ source "$HERE/../config/build.env"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 if [ "${1:-}" = "--installed" ]; then
-  ROOT=/usr/lib/$PKG_NAME
+  ROOT=/usr/lib/$MULTIARCH/$PKG_NAME
 else
-  ROOT=$PACKAGE_ROOT/$PKG_NAME/usr/lib/$PKG_NAME
+  ROOT=$PACKAGE_ROOT/$PKG_NAME/usr/lib/$MULTIARCH/$PKG_NAME
 fi
 LIBF="$ROOT/lib/libonnxruntime.so.$ORT_VERSION"
 [ -f "$LIBF" ] || die "$LIBF not found — run: make assemble (or make install-deb)"

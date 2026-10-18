@@ -15,7 +15,7 @@ source "$HERE/../config/build.env"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 PAYLOAD_ROOT=$PACKAGE_ROOT/$PKG_NAME
-LIBDIR=$PAYLOAD_ROOT/usr/lib/$PKG_NAME
+LIBDIR=$PAYLOAD_ROOT/usr/lib/$MULTIARCH/$PKG_NAME
 DEBIAN=$PAYLOAD_ROOT/DEBIAN
 ARCH=amd64
 DEB=$DIST_DIR/${PKG_NAME}_${PKG_VERSION}_${ARCH}.deb
@@ -154,6 +154,7 @@ render() { # template out
   t=${t//@GPU_TARGETS@/$GPU_TARGETS}
   t=${t//@ROCM_LIB_DIRS@/$ROCM_DIRS}
   t=${t//@REQUIRED_LIBS@/$ROCM_LIBS_BLOCK}
+  t=${t//@MULTIARCH@/$MULTIARCH}
   printf '%s\n' "$t" > "$2"
 }
 

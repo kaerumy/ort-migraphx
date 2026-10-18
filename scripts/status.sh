@@ -24,7 +24,7 @@ for entry in "${STAGES[@]}"; do
   fi
 done
 echo
-if [ -f "$PACKAGE_ROOT/$PKG_NAME/usr/lib/$PKG_NAME/lib/libonnxruntime.so.$ORT_VERSION" ]; then
+if [ -f "$PACKAGE_ROOT/$PKG_NAME/usr/lib/$MULTIARCH/$PKG_NAME/lib/libonnxruntime.so.$ORT_VERSION" ]; then
   echo "payload : staged  ($PACKAGE_ROOT/$PKG_NAME)"
 else
   echo "payload : not staged (run: make assemble)"

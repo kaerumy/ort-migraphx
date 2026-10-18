@@ -2,9 +2,17 @@
 # Assemble the stack built under $BUILD_ROOT into the dpkg payload tree:
 #
 #   $PACKAGE_ROOT/$PKG_NAME/
-#     usr/lib/$PKG_NAME/lib/        ORT + MIGraphX libraries (RPATH-hardened)
-#     usr/lib/$PKG_NAME/test/       smoke-test binaries + model
-#     usr/share/doc/$PKG_NAME/      package README
+#     usr/lib/$MULTIARCH/$PKG_NAME/lib/   ORT + MIGraphX libraries (RPATH-hardened)
+#     usr/lib/$MULTIARCH/$PKG_NAME/test/  smoke-test binaries + model
+#     usr/share/doc/$PKG_NAME/            package README
+#
+# Layout per the Ubuntu packaging guide (ch. 10, "Shared Libraries"):
+# shared libraries live in the /usr/lib/ tree; the runtime package carries
+# the real files (libfoo.so.x.y.z) plus their SONAME symlinks (libfoo.so.x).
+# The unversioned libfoo.so dev symlinks are NOT shipped (they belong to a
+# -dev package; this one ships no headers). The per-package subdirectory
+# under the multi-arch dir keeps per-GPU-target installs side by side and
+# keeps the libraries private (ldconfig does not recurse into it).
 #
 # Prerequisite: the full build (make deps ck rocmlir migraphx ort).
 # The resulting tree is packaged by scripts/build-deb.sh (make deb).
@@ -15,8 +23,9 @@ source "$HERE/../config/build.env"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 PAYLOAD_ROOT=$PACKAGE_ROOT/$PKG_NAME
-LIB=$PAYLOAD_ROOT/usr/lib/$PKG_NAME/lib
-TEST=$PAYLOAD_ROOT/usr/lib/$PKG_NAME/test
+PKG_DIR=$PAYLOAD_ROOT/usr/lib/$MULTIARCH/$PKG_NAME
+LIB=$PKG_DIR/lib
+TEST=$PKG_DIR/test
 ORT_SRC=$ORT_DIR/onnxruntime
 ORT_BLD=$ORT_SRC/build/Linux/Release
 MG_INSTALL=$MIGRAPHX_DIR/install
@@ -39,15 +48,21 @@ rm -rf "$PAYLOAD_ROOT"
 mkdir -p "$LIB/migraphx/lib" "$TEST" "$PAYLOAD_ROOT/usr/share/doc/$PKG_NAME"
 
 echo "==> ORT libraries from $ORT_BLD"
-# main lib (versioned file + .so / .so.1 symlinks) + provider libs
+# main lib: real file + SONAME symlink (the unversioned .so dev symlink is
+# not shipped — see the layout note above) + provider libs (their filenames
+# ARE their SONAMEs; ORT dlopens them by name next to libonnxruntime)
 cp -a "$ORT_BLD"/libonnxruntime.so.1.* "$LIB/"
-cp -a "$ORT_BLD"/libonnxruntime.so "$ORT_BLD"/libonnxruntime.so.1 "$LIB/"
+cp -a "$ORT_BLD"/libonnxruntime.so.1 "$LIB/"
 cp -a "$ORT_BLD"/libonnxruntime_providers_migraphx.so* "$LIB/"
 cp -a "$ORT_BLD"/libonnxruntime_providers_shared.so* "$LIB/"
 
 echo "==> MIGraphX libraries (preserving the lib/migraphx/lib layout)"
-cp -a "$MG_INSTALL/lib"/libmigraphx_c.so* "$LIB/"
+# C API: real file + SONAME symlink (no unversioned .so dev symlink)
+cp -a "$MG_INSTALL/lib/libmigraphx_c.so.3.0" "$MG_INSTALL/lib/libmigraphx_c.so.3" "$LIB/"
 cp -a "$MG_INSTALL/lib/migraphx/lib/." "$LIB/migraphx/lib/"
+# Drop the unversioned dev symlinks the install prefix carries
+# (libmigraphx*.so — guide: dev files belong to a -dev package).
+find "$LIB/migraphx/lib" -maxdepth 1 -type l -name 'libmigraphx*.so' -delete
 
 echo "==> Hardening RPATHs so the stack resolves ROCm without the ld cache"
 # libmigraphx_gpu.so has 6 ROCm NEEDED entries (amdhip64, hiprtc, MIOpen,
@@ -79,6 +94,7 @@ cp -a "$REPO_ROOT/test/test_mgx.onnx" "$REPO_ROOT/test/x_input.bin" "$REPO_ROOT/
 
 echo "==> Package README"
 sed -e "s|@PKG_NAME@|$PKG_NAME|g" \
+    -e "s|@MULTIARCH@|$MULTIARCH|g" \
     -e "s|@ORT_VERSION@|$ORT_VERSION|g" \
     -e "s|@ROCM_VERSION@|$ROCM_VERSION|g" \
     -e "s|@GPU_TARGETS@|$GPU_TARGETS|g" \
