@@ -1,16 +1,13 @@
 # ort-migraphx
 
-Build **ONNX Runtime with the AMD MIGraphX execution provider** on ROCm
-(TheRock), and release it as a Debian package that users can install and
-uninstall with `apt`.
+Build debian packages for **ONNX Runtime with the AMD MIGraphX execution provider** on ROCm (TheRock).
 
 - Initial target GPU: **gfx1201** (RDNA4 — RX 9070 XT / R9700)
 - Initial target ROCm: **10.1** (TheRock `amdrocm` packages)
 - Initial target distro: **Ubuntu 26.10** (the build machine's distro)
-- The stack is intended for darktable's AI features (any other ONNX
-  consumer works too).
+- Tested for darktable AI use case, but it should work for other ONNX runtime consumers as well.
 
-Everything (versions, GPU targets, paths) lives in one file:
+Everything (versions, GPU targets, paths) currently is in:
 [`config/build.env`](config/build.env).
 
 ## Quick start
@@ -294,39 +291,12 @@ Needs the AMD GPU + ROCm. The first inference of each model is slow
 
 ## Adding a GPU target
 
-`GPU_TARGETS="gfx1201 gfx1202" make build …` produces one stack that covers
-both targets; the package name becomes `ort-migraphx-gfx1201-gfx1202` and the
-Depends gain the `amdrocm-dnn10.1-gfx1202` / `amdrocm-blas10.1-gfx1202`
+*Untested as I only have access to gfx1201 GPUs*
+
+`GPU_TARGETS="gfx1201 gfx1200" make build …` produces one stack that covers
+both targets; the package name becomes `ort-migraphx-gfx1201-gfx1200` and the
+Depends gain the `amdrocm-dnn10.1-gfx1200` / `amdrocm-blas10.1-gfx1200`
 packages automatically. Alternatively build per-target packages (separate
 `GPU_TARGETS` + fresh `build/` per target) so users pick the package matching
 their GPU — they install side by side without file clashes, since each
 package uses its own `/usr/lib/<multiarch>/<pkg>/` tree.
-
-## Migrating from the original repo (ort-migraphx-initial)
-
-The original package installed to `/usr/lib/ort-migraphx/`; this one
-installs to `/usr/lib/<multiarch>/<pkg>/` (per-target, so multiple targets
-can be installed side by side). The package *name* is unchanged
-(`ort-migraphx-gfx1201`), so on a machine with an older revision of it:
-
-```sh
-sudo apt-get install ./dist/ort-migraphx-gfx1201_1.31.0-2_amd64.deb
-```
-
-upgrades in place — dpkg removes the old version's files (e.g. the
-`/usr/lib/ort-migraphx/` tree or the pre-revision-2 `/usr/lib/<pkg>/`
-tree, plus the unversioned dev symlinks revision 2 no longer ships) and
-installs the new one. After that, point darktable's
-`plugins/ai/ort_library_path` (or `DT_ORT_LIBRARY`) at the **new** path
-`/usr/lib/x86_64-linux-gnu/ort-migraphx-gfx1201/lib/libonnxruntime.so.1.31.0`.
-
-## Provenance
-
-Refactored from `~/src/ort-migraphx-initial` (the original, proven build +
-packaging). The build recipes (stage order, cmake flags, pins, RPATH
-hardening, maintainer-script logic) are preserved from that proven tree; the
-packaging (control/Depends/maintainer scripts) is now generated at build
-time instead of committed, and the payload installs to a per-package
-directory. The original's committed prebuilt payload was used to validate
-this project's packaging pipeline end-to-end (deb build → GPU smoke test),
-after which a fresh `make build` regenerates everything from source.
