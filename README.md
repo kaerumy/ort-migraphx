@@ -4,8 +4,8 @@ Build debian packages for **ONNX Runtime with the AMD MIGraphX execution provide
 
 - Initial target GPU: **gfx1201** (RDNA4 — RX 9070 XT / R9700)
 - Initial target ROCm: **10.1** (TheRock `amdrocm` packages)
-- Initial target distro: **Ubuntu 26.10** (the build machine's distro)
-- Tested for darktable AI use case, but it should work for other ONNX runtime consumers as well.
+- Initial target distro: **Ubuntu 26.10**
+- Tested for darktable ONNX AI/ML model use case, but it should work for other ONNX runtime consumers as well.
 
 Everything (versions, GPU targets, paths) currently is in:
 [`config/build.env`](config/build.env).
@@ -59,7 +59,7 @@ Override with `ORT_CC`/`ORT_CXX` if your box differs.
 
 ```
 Makefile               entry point (make help for the target list)
-build.sh               thin alias: ./build.sh [stage]  (old muscle memory)
+build.sh               thin alias: ./build.sh [stage]
 config/build.env       single source of truth: targets, ROCm, pins, paths
 stages/                the source build, in order (see "Build stages")
   common.sh            shared helpers (logging, checks, resume-safe clones, stamps)
@@ -169,7 +169,7 @@ Checked 2026-10 against the TheRock and Ubuntu (26.10) repos:
 - `migraphx7.2.4` (Ubuntu) has a full Triton JIT for gfx1201 but is the
   ROCm **7.2.4** runtime.
 
-So the vendored MIGraphX (`rocm-10.1`) + amdrocm 10.1 runtime is the only
+The vendored MIGraphX (`rocm-10.1`) + amdrocm 10.1 runtime is the only
 combination that gives ROCm 10.1 + MIGraphX + gfx1201. Revisit if TheRock ever
 ships a `migraphx` package, or a distro build gains the rocMLIR gfx1201 JIT
 for ROCm ≥ 10.1 — then the bundled MIGraphX can be dropped in favor of
