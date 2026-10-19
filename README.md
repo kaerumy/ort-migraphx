@@ -109,7 +109,7 @@ Every value can be overridden from the environment, e.g.
 | `ORT_CC` / `ORT_CXX` | `clang-22` / `clang++-22` | ORT-stage compiler |
 | `JOBS` | `nproc` | parallelism |
 | `BUILD_ROOT` | `./build` | all build areas |
-| `PKG_REVISION`, `MAINTAINER` | `1`, `kaeru <…>` | deb metadata; bump `PKG_REVISION` when packaging changes |
+| `PKG_REVISION`, `MAINTAINER` | `2`, `kaerumy <…>` | deb metadata; bump `PKG_REVISION` when packaging changes |
 | `EXTRA_DEPENDS`, `SONAME_RULES` | empty | escape hatches for the Depends generator |
 
 ## Packaging & release
